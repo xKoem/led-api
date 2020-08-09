@@ -21,11 +21,13 @@ class LightType(Enum):
     WIPE = 1
     SOLID = 2
     RAINBOW = 3
+    LOADING = 4
 
 class Type:
-    def __init__(self, lightType, color=Color(0, 0, 0)):
+    def __init__(self, lightType, color=Color(0, 0, 0), speed=10):
         self.lightType = lightType
         self.color = color
+        self.speed = speed
 
 threads = []
 helperThreads = []
@@ -88,14 +90,20 @@ class MyThread(threading.Thread):
             helperThreads.append(AnimationThread(self.strip, typ.lightType))
             helperThreads[0].start()
             time.sleep(0.1)
+        elif typ.lightType == LightType.LOADING:
+            helperThreads.append(AnimationThread(self.strip, typ.lightType, typ.speed, typ.color))
+            helperThreads[0].start()
+            time.sleep(0.1)
 
 
 class AnimationThread(threading.Thread):
-    def __init__(self, strip, lightType, speed=10, args=None, kwargs=None):
+    def __init__(self, strip, lightType, speed=10, color=color(0, 0, 0), args=None, kwargs=None):
         threading.Thread.__init__(self, args=None, kwargs=None)
         self.daemon = True
         self.strip = strip
         self.lightType = lightType
+        self.speed = speed
+        self.color = color
         self.killed = False
 
     def kill(self):
@@ -103,7 +111,10 @@ class AnimationThread(threading.Thread):
 
     def run(self):
         while not self.killed:
-            self.rainbowCycle(self.strip)
+            if self.lightType == LightType.RAINBOW:
+                self.rainbowCycle(self.strip)
+            elif self.lightType == LightType.LOADING:
+                self.loading(self.strip, self.speed)
 
 
     def rainbowCycle(self, strip, waitMs=10):
@@ -114,6 +125,18 @@ class AnimationThread(threading.Thread):
                     return
             self.strip.show()
             time.sleep(waitMs/1000.0)
+    
+
+    def loading(self, strip, speed, waitMs=10.0):
+        for i in range(self.strip.numPixels()) + range(self.strip.numPixels() - 2, 0, -1):
+            for j in range(self.strip.numPixels()):
+                if self.killed == True:
+                    return
+                self.strip.setPixelColor(j, color(0, 0, 0))
+            self.strip.setPixelColor(i, self.color)
+            self.strip.show()
+            time.sleep(waitMs/self.speed)
+            
 
 app = Flask(__name__)
 
@@ -141,6 +164,16 @@ def colorSolidRest():
 def rainbow():
     threads[0].queue.put(Type(LightType.RAINBOW))
     return "rainbow"
+
+
+@app.route('/loading')
+def loading():
+    red = request.args.get('red')
+    green = request.args.get('green')
+    blue = request.args.get('blue')
+    speed = request.args.get('speed')
+    threads[0].queue.put(Type(LightType.LOADING, color(int(red), int(green), int(blue)), int(speed)))
+    return "loading"
 
 
 @app.route('/')
