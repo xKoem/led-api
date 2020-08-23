@@ -2,6 +2,7 @@
 
 from neopixel import *
 import argparse
+import random
 
 from flask import Flask, request, jsonify
 import threading
@@ -22,6 +23,9 @@ class LightType(Enum):
     SOLID = 2
     RAINBOW = 3
     LOADING = 4
+    JOIN = 5
+    RACING = 6
+    RANDOM_RAINBOW = 7
 
 class Type:
     def __init__(self, lightType, color=Color(0, 0, 0), speed=10):
@@ -47,6 +51,10 @@ def wheel(pos):
         return color(0, pos * 3, 255 - pos * 3)
 
 
+def randomColor():
+    return wheel(random.randrange(1, 255))
+
+
 print_lock = threading.Lock()
 class MyThread(threading.Thread):
 
@@ -56,11 +64,28 @@ class MyThread(threading.Thread):
             strip.show()
             time.sleep(wait_ms/1000.0)
 
+    def colorJoin(self, strip, col, wait_ms=10):
+        for i in range(strip.numPixels()):
+            for j in range (strip.numPixels() - i):
+                for k in range(j):
+                    strip.setPixelColor(k, color(0,0,0))
+                strip.setPixelColor(j, col)
+                strip.show()
+                time.sleep(wait_ms/1000.0)
+
+    def colorRacing(self, strip, col, wait_ms=20): # not working WIP
+        for i in range(strip.numPixels()):
+            for j in range (strip.numPixels() - i):
+                for k in range(j):
+                    strip.setPixelColor(k, color(0,0,0))
+                strip.setPixelColor(j, col)
+                strip.show()
+                time.sleep(wait_ms/1000.0)
+
     def solidColor(self, strip, color):
         for i in range(strip.numPixels()):
             strip.setPixelColor(i, color)
         strip.show()
-
 
     def __init__(self, queue, strip, args=None, kwargs=None):
         threading.Thread.__init__(self, args=None, kwargs=None)
@@ -86,7 +111,15 @@ class MyThread(threading.Thread):
             self.colorWipe(self.strip, typ.color)
         elif typ.lightType == LightType.SOLID:
             self.solidColor(self.strip, typ.color)
+        elif typ.lightType == LightType.JOIN:
+            self.colorJoin(self.strip, typ.color)
+        elif typ.lightType == LightType.RACING:
+            self.colorRacing(self.strip, typ.color)
         elif typ.lightType == LightType.RAINBOW:
+            helperThreads.append(AnimationThread(self.strip, typ.lightType))
+            helperThreads[0].start()
+            time.sleep(0.1)
+        elif typ.lightType == LightType.RANDOM_RAINBOW:
             helperThreads.append(AnimationThread(self.strip, typ.lightType))
             helperThreads[0].start()
             time.sleep(0.1)
@@ -113,6 +146,8 @@ class AnimationThread(threading.Thread):
         while not self.killed:
             if self.lightType == LightType.RAINBOW:
                 self.rainbowCycle(self.strip)
+            if self.lightType == LightType.RANDOM_RAINBOW:
+                self.randomRainbow(self.strip)
             elif self.lightType == LightType.LOADING:
                 self.loading(self.strip, self.speed)
 
@@ -121,6 +156,16 @@ class AnimationThread(threading.Thread):
         for j in range(256):
             for i in range(self.strip.numPixels()):
                 self.strip.setPixelColor(i, wheel((int(i * 256 / strip.numPixels()) + j) & 255))
+                if self.killed == True:
+                    return
+            self.strip.show()
+            time.sleep(waitMs/1000.0)
+
+
+    def randomRainbow(self, strip, waitMs=300):
+        for j in range(256):
+            for i in range(self.strip.numPixels()):
+                self.strip.setPixelColor(i, randomColor())
                 if self.killed == True:
                     return
             self.strip.show()
@@ -149,6 +194,24 @@ def colorWipeRest():
 
     return "wipe"
 
+@app.route('/color-join')
+def colorJoinRest():
+    red = request.args.get('red')
+    green = request.args.get('green')
+    blue = request.args.get('blue')
+    threads[0].queue.put(Type(LightType.JOIN, color(int(red), int(green), int(blue))))
+
+    return "join"
+
+@app.route('/color-racing')
+def colorRacingRest():
+    red = request.args.get('red')
+    green = request.args.get('green')
+    blue = request.args.get('blue')
+    threads[0].queue.put(Type(LightType.RACING, color(int(red), int(green), int(blue))))
+
+    return "racing"
+
 
 @app.route('/color-solid')
 def colorSolidRest():
@@ -161,13 +224,19 @@ def colorSolidRest():
 
 
 @app.route('/rainbow')
-def rainbow():
+def rainbowRest():
     threads[0].queue.put(Type(LightType.RAINBOW))
     return "rainbow"
 
 
+@app.route('/random-rainbow')
+def randomRainbowRest():
+    threads[0].queue.put(Type(LightType.RANDOM_RAINBOW))
+    return "random-rainbow"
+
+
 @app.route('/loading')
-def loading():
+def loadingRest():
     red = request.args.get('red')
     green = request.args.get('green')
     blue = request.args.get('blue')
