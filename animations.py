@@ -41,14 +41,23 @@ def wheel(pos):
         return LedColor(0, pos * 3, 255 - pos * 3)
 
 
-class Solid: 
-    def __init__(self, strip, color):
+class Animation:
+    def __init__(self, strip, color = LedColor(0, 0, 0), speed = 5):
         self.strip = strip
         self.color = color
+        self.speed = speed
         self.killed = False
+        self.wait_ms = 20
 
     def kill(self):
         self.killed = True
+
+    def animate(self):
+        pass
+
+class Solid(Animation, object): 
+    def __init__(self, strip, color):
+        super(Solid, self).__init__(strip, color)
 
     def animate(self):
         for i in range(self.strip.numPixels()):
@@ -56,15 +65,9 @@ class Solid:
         self.strip.show()
 
 
-class Wipe: 
+class Wipe(Animation, object): 
     def __init__(self, strip, color):
-        self.strip = strip
-        self.color = color
-        self.killed = False
-        self.wait_ms = 20
-
-    def kill(self):
-        self.killed = True
+        super(Wipe, self).__init__(strip, color)
 
     def animate(self):
           for i in range(self.strip.numPixels()):
@@ -73,15 +76,9 @@ class Wipe:
             time.sleep(self.wait_ms/1000.0)
 
 
-class Join: 
+class Join(Animation, object): 
     def __init__(self, strip, color):
-        self.strip = strip
-        self.color = color
-        self.killed = False
-        self.wait_ms = 20
-
-    def kill(self):
-        self.killed = True
+        super(Join, self).__init__(strip, color)
 
     def animate(self):
         for i in range(self.strip.numPixels()):
@@ -95,14 +92,9 @@ class Join:
                 time.sleep(self.wait_ms/1000.0)
 
 
-class Rainbow: 
+class Rainbow(Animation, object): 
     def __init__(self, strip):
-        self.strip = strip
-        self.killed = False
-        self.wait_ms = 20
-
-    def kill(self):
-        self.killed = True
+        super(Rainbow, self).__init__(strip)
 
     def animate(self):
         while True:
@@ -115,16 +107,9 @@ class Rainbow:
                 time.sleep(self.wait_ms/1000.0)
 
 
-class Loading: 
+class Loading(Animation, object): 
     def __init__(self, strip, color, speed):
-        self.strip = strip
-        self.color = color
-        self.speed = speed
-        self.killed = False
-        self.wait_ms = 20
-
-    def kill(self):
-        self.killed = True
+        super(Loading, self).__init__(strip, color, speed)
 
     def animate(self):
         while True:

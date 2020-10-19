@@ -2,16 +2,13 @@ from neopixel import *
 import threading
 from animations import *
 
-# def randomColor():
-#     return wheel(random.randrange(1, 255))
-
 class Led:
     def __init__(self, strip, args=None, kwargs=None): 
         self.strip = strip
         self.strip.begin()
         self.thread = None
     
-    def animate(self, lightType, color = LedColor(0, 0, 0), speed = 20):
+    def animate(self, lightType, color = LedColor(0, 0, 0), speed = 5):
         self.stopProcessing()
         self.thread = StandardThread(getAnimation(self.strip, lightType, color, speed))
         self.thread.start()
